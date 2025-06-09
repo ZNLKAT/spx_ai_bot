@@ -1,21 +1,38 @@
-from kucoin.client import Futures
-from telegram import Bot
+import os
 import logging
+from kucoin_futures.client import Trade
+from telegram import Bot
+from time import sleep
 
-# Telegram Setup
-TELEGRAM_TOKEN = '7763466336:AAFNZgLAIZ60ebkMgSU66SqDfpuXZH4dCcU'
-TELEGRAM_CHAT_ID = '1093230583'
+# Lade Umgebungsvariablen
+KUCOIN_API_KEY = os.getenv("KUCOIN_API_KEY")
+KUCOIN_API_SECRET = os.getenv("KUCOIN_API_SECRET")
+KUCOIN_API_PASSPHRASE = os.getenv("KUCOIN_API_PASSPHRASE")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
+# Setup
 bot = Bot(token=TELEGRAM_TOKEN)
+trade_client = Trade(key=KUCOIN_API_KEY, secret=KUCOIN_API_SECRET, passphrase=KUCOIN_API_PASSPHRASE)
 
-# KuCoin Setup
-API_KEY = '68472cefd0a5f40001f25a4b'
-API_SECRET = '62b0fb1f-cfbe-4540-8176-b380036d6aa8'
-API_PASSPHRASE = 'GainerBot@2025'
+logging.basicConfig(level=logging.INFO)
 
-client = Futures(key=API_KEY, secret=API_SECRET, passphrase=API_PASSPHRASE)
+def send_telegram(message):
+    try:
+        bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+        logging.info("Telegram: " + message)
+    except Exception as e:
+        logging.error("Telegram Fehler: " + str(e))
 
-try:
-    account_overview = client.get_account_overview('USDT')
-    bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=f"✅ Bot gestartet.\nFutures Balance: {account_overview['availableBalance']} USDT")
-except Exception as e:
-    bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=f"❌ Fehler beim Start: {str(e)}")
+def simple_strategy():
+    # Platzhalterstrategie – Beispielhandel
+    try:
+        result = trade_client.create_market_order('SPXUSDTM', 'buy', size=1)
+        send_telegram(f"Einstieg ausgeführt: {result}")
+    except Exception as e:
+        send_telegram(f"Fehler beim Einstieg: {str(e)}")
+
+if __name__ == "__main__":
+    while True:
+        simple_strategy()
+        sleep(300)  # alle 5 Minuten
