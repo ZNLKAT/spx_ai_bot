@@ -65,4 +65,7 @@ if not holding and ai_should_buy(current_price, last_price):
     print("🤖 KI-Entscheidung: KAUF empfohlen.")
 elif holding and ai_should_sell(current_price, entry_price):
     print("🤖 KI-Entscheidung: VERKAUF empfohlen.")
-
+except Exception as e:
+    print("❌ Schwerer Fehler:", e)
+    time.sleep(10)  # Warte 10 Sekunden und versuche es erneut
+    continue
