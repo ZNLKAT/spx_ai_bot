@@ -1,1 +1,1 @@
-git+https://github.com/sammchardy/python-kucoin.git
+git+https://github.com/sammchardy/kucoin-futures-python
