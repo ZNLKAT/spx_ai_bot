@@ -1,5 +1,5 @@
 import time
-from kucoin_futures.client import Market
+from kucoin.client import Market
 
 # API-Client
 client = Market()
