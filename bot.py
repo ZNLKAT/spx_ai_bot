@@ -55,10 +55,14 @@ while True:
             holding = False
             entry_price = None
 
-        last_price = current_price
-        print(f"📊 Aktueller Preis: {current_price} USDT – Kapital: {capital:.2f} USDT – Status: {'HOLDING' if holding else 'WAITING'}")
+        if holding:
+    print(f"📊 Preis: {current_price:.4f} | Gekauft bei: {entry_price:.4f} | Kapital: {capital:.2f} | Status: HOLDING")
+else:
+    print(f"📊 Preis: {current_price:.4f} | Noch kein Trade | Kapital: {capital:.2f} | Status: WAITING")
 
-    except Exception as e:
-        print("❌ Fehler:", e)
+# KI-Entscheidung protokollieren
+if not holding and ai_should_buy(current_price, last_price):
+    print("🤖 KI-Entscheidung: KAUF empfohlen.")
+elif holding and ai_should_sell(current_price, entry_price):
+    print("🤖 KI-Entscheidung: VERKAUF empfohlen.")
 
-    time.sleep(interval)
