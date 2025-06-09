@@ -1,38 +1,57 @@
 import os
-import logging
-from kucoin_futures.client import Trade
+import time
+import requests
+from kucoin_futures.client import Market
 from telegram import Bot
-from time import sleep
 
-# Lade Umgebungsvariablen
+# Umgebungsvariablen laden
 KUCOIN_API_KEY = os.getenv("KUCOIN_API_KEY")
 KUCOIN_API_SECRET = os.getenv("KUCOIN_API_SECRET")
 KUCOIN_API_PASSPHRASE = os.getenv("KUCOIN_API_PASSPHRASE")
+
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-# Setup
+# Telegram-Bot
 bot = Bot(token=TELEGRAM_TOKEN)
-trade_client = Trade(key=KUCOIN_API_KEY, secret=KUCOIN_API_SECRET, passphrase=KUCOIN_API_PASSPHRASE)
 
-logging.basicConfig(level=logging.INFO)
+# KuCoin Futures Client (nur Marktinfos, kein Trade)
+client = Market()
 
-def send_telegram(message):
+# Parameter
+symbol = "SPXUSDTM"  # Perpetual Futures
+interval = 60  # Sekunden
+stop_loss_percent = 0.01  # 1%
+
+# Letzter Preis zwischenspeichern
+last_price = None
+
+def send_telegram(msg):
     try:
-        bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-        logging.info("Telegram: " + message)
+        bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=msg)
     except Exception as e:
-        logging.error("Telegram Fehler: " + str(e))
+        print(f"Telegram Fehler: {e}")
 
-def simple_strategy():
-    # Platzhalterstrategie – Beispielhandel
+def get_current_price():
     try:
-        result = trade_client.create_market_order('SPXUSDTM', 'buy', size=1)
-        send_telegram(f"Einstieg ausgeführt: {result}")
+        ticker = client.get_ticker(symbol=symbol)
+        return float(ticker['price'])
     except Exception as e:
-        send_telegram(f"Fehler beim Einstieg: {str(e)}")
+        print(f"Preisfehler: {e}")
+        return None
 
-if __name__ == "__main__":
-    while True:
-        simple_strategy()
-        sleep(300)  # alle 5 Minuten
+while True:
+    try:
+        price = get_current_price()
+        if price:
+            if last_price:
+                diff = (price - last_price) / last_price
+                if diff >= 0.02:
+                    send_telegram(f"📈 Einstiegssignal: Preis +2% → {price:.4f} USDT")
+                elif diff <= -stop_loss_percent:
+                    send_telegram(f"⚠️ Stop-Loss ausgelöst bei {price:.4f} USDT")
+            last_price = price
+        time.sleep(interval)
+    except Exception as e:
+        send_telegram(f"❌ Fehler im Bot: {e}")
+        time.sleep(60)
