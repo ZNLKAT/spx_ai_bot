@@ -1,59 +1,73 @@
 import os
 import time
-import requests
-from kucoin_futures.client import Market
-from telegram import Bot
+from kucoin_futures.client import Market, Trade
+from telegram import Bot, Update
+from telegram.ext import Updater, CommandHandler, CallbackContext
 
-# Umgebungsvariablen laden
+# 🔐 ENV-Variablen laden
 KUCOIN_API_KEY = os.getenv("KUCOIN_API_KEY")
 KUCOIN_API_SECRET = os.getenv("KUCOIN_API_SECRET")
 KUCOIN_API_PASSPHRASE = os.getenv("KUCOIN_API_PASSPHRASE")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-# Telegram-Nachricht senden
-def send_telegram_message(message):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message
-    }
-    requests.post(url, data=payload)
+# 📈 KuCoin Client
+market_client = Market()
+trade_client = Trade(
+    key=KUCOIN_API_KEY,
+    secret=KUCOIN_API_SECRET,
+    passphrase=KUCOIN_API_PASSPHRASE,
+    is_sandbox=False
+)
 
-# Telegram-Bot initialisieren
+# 🤖 Telegram Bot
 bot = Bot(token=TELEGRAM_TOKEN)
+updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
+dispatcher = updater.dispatcher
 
-# KuCoin-Marktdaten-Client
-client = Market()
+# /start Befehl
+def start(update: Update, context: CallbackContext):
+    context.bot.send_message(chat_id=update.effective_chat.id, text="✅ SPX/USDT Bot ist aktiv!")
 
-# Trading-Parameter
-symbol = "SPXUSDTM"  # Futures-Markt
+start_handler = CommandHandler('start', start)
+dispatcher.add_handler(start_handler)
+
+# 📤 Nachricht senden
+def notify(message):
+    bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+
+# 📊 SPX Futures überwachen & handeln
+symbol = "SPXUSDTM"
+stop_loss_percent = 0.01
 interval = 60  # Sekunden
-stop_loss_percent = 0.01  # 1%
-
-# Startnachricht
-send_telegram_message("✅ SPX-Bot wurde erfolgreich gestartet.")
-
-# Preisverlauf
 last_price = None
 
-# Hauptlogik (Preis checken + Dummy-Logik)
+def check_price():
+    global last_price
+    ticker = market_client.get_ticker(symbol)
+    current_price = float(ticker["price"])
+
+    if last_price is not None:
+        diff = (current_price - last_price) / last_price
+        if diff >= 0.01:
+            try:
+                trade_client.create_market_order(symbol=symbol, side="buy", leverage=10, size=1)
+                notify(f"🟢 Gekauft SPX @ {current_price}")
+            except Exception as e:
+                notify(f"❌ Kauf fehlgeschlagen: {str(e)}")
+        elif diff <= -stop_loss_percent:
+            try:
+                trade_client.create_market_order(symbol=symbol, side="sell", leverage=10, size=1)
+                notify(f"🔴 Verkauft SPX (StopLoss) @ {current_price}")
+            except Exception as e:
+                notify(f"❌ Verkauf fehlgeschlagen: {str(e)}")
+
+    last_price = current_price
+
+# 🟢 Start Bot + Preisüberwachung
+updater.start_polling()
+notify("📡 SPX-Bot gestartet.")
+
 while True:
-    try:
-        ticker = client.get_ticker(symbol=symbol)
-        current_price = float(ticker['price'])
-
-        if last_price is not None:
-            price_change = (current_price - last_price) / last_price
-
-            if price_change >= 0.02:
-                send_telegram_message(f"📈 Einstiegssignal: Kurs +2% auf {current_price} USDT")
-            elif price_change <= -stop_loss_percent:
-                send_telegram_message(f"📉 Stop-Loss erreicht: Kurs bei {current_price} USDT")
-
-        last_price = current_price
-        time.sleep(interval)
-
-    except Exception as e:
-        send_telegram_message(f"❌ Fehler im Bot: {str(e)}")
-        time.sleep(60)
+    check_price()
+    time.sleep(interval)
