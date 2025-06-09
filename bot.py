@@ -49,11 +49,13 @@ while True:
             print(f"✅ Gekauft bei {entry_price} USDT")
 
         elif holding and ai_should_sell(current_price, entry_price):
-            profit = current_price - entry_price
-            capital += profit
-            print(f"💰 Verkauf bei {current_price} USDT – Gewinn: {profit:.4f} – Neues Kapital: {capital:.2f} USDT")
-            holding = False
-            entry_price = None
+    profit = current_price - entry_price
+    profit_percent = (profit / entry_price) * 100
+    capital += profit
+    print(f"💰 Verkauf bei {current_price:.4f} USDT | Gewinn: {profit:.4f} USDT | +{profit_percent:.2f}%")
+    print(f"📈 Neues Kapital: {capital:.4f} USDT")
+    holding = False
+    entry_price = None
 
         if holding:
     print(f"📊 Preis: {current_price:.4f} | Gekauft bei: {entry_price:.4f} | Kapital: {capital:.2f} | Status: HOLDING")
